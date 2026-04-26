@@ -20,41 +20,40 @@ def render_leaderboard_png(
     week_label: str | None = None,
     week_start: str | None = None,
     week_end: str | None = None,
+    chart_title: str | None = None,
     footer_time: str | None = None,
 ) -> Path:
     text_color = "white"
     background_color = "black"
 
-    def _build_week_title() -> str:
+    def _title_for_top() -> str:
+        if chart_title and chart_title.strip():
+            return chart_title.strip()
         if week_label and week_start and week_end:
             return f"{week_label}  -  {week_start}  ~  {week_end}"
-        return week_label or ""
+        return (week_label or "").strip()
 
     match template:
         case "top":
             ybottom = -0.5
             x = -1
-            title = _build_week_title()
-            heading_code = (
-                f"ax.set_title({title!r}, pad=0, loc='center', va='top', "
-                "fontsize=17, weight='bold', color=text_color)"
-            )
+            title_top = _title_for_top()
+            title_extra_px = 56
         case "bottom":
             ybottom = -1
             x = 0
-            heading_code = (
-                f"plt.figtext(.5, .1, {('Last update — ' + (footer_time or ''))!r}, "
-                "fontsize=7.5, ha='center', color=text_color)"
-            )
+            title_top = ""
+            title_extra_px = 0
         case "middle":
             ybottom = -1
             x = 0
-            heading_code = ""
+            title_top = ""
+            title_extra_px = 0
         case _:
             raise ValueError(template)
 
     w = 785
-    h = max(43, 43 * len(data))
+    h = max(43, 43 * len(data)) + title_extra_px
     rows = len(data) + 2
     cols = 8
 
@@ -62,7 +61,10 @@ def render_leaderboard_png(
     fig.set_size_inches(w / 100, h / 100)
     ax.set_ylim(ybottom, rows)
     ax.set_xlim(0, cols)
-    fig.subplots_adjust(bottom=0.06, top=0.94)
+    if template == "top":
+        fig.subplots_adjust(left=0.04, right=0.96, bottom=0.06, top=0.78)
+    else:
+        fig.subplots_adjust(bottom=0.06, top=0.94)
     ax.axis("off")
 
     for index, user in enumerate(data[::-1]):
@@ -91,8 +93,24 @@ def render_leaderboard_png(
     ]:
         ax.text(xpos, rows - 1 + x, name, weight="bold", size=11, color=text_color)
 
-    if heading_code:
-        exec(heading_code, {"ax": ax, "plt": plt, "text_color": text_color})
+    if template == "top" and title_top:
+        fig.suptitle(
+            title_top,
+            fontsize=15,
+            fontweight="bold",
+            color=text_color,
+            y=0.96,
+            va="top",
+        )
+    elif template == "bottom":
+        plt.figtext(
+            0.5,
+            0.1,
+            "Last update — " + (footer_time or ""),
+            fontsize=7.5,
+            ha="center",
+            color=text_color,
+        )
 
     ax.plot(
         [0.25, cols - 0.25],
@@ -113,6 +131,12 @@ def render_leaderboard_png(
             )
 
     out = config.STORAGE_IMAGES / f"{image_alias}_{template}_leaderboard.png"
-    fig.savefig(out, format="png")
+    fig.savefig(
+        out,
+        format="png",
+        facecolor=background_color,
+        bbox_inches="tight",
+        pad_inches=0.12,
+    )
     plt.close(fig)
     return out

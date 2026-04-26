@@ -73,6 +73,7 @@ class MolengeekLeaderboardBot(commands.Bot):
             week_label=week.label,
             week_start=week.human_start,
             week_end=week.human_end,
+            chart_title=week.chart_title,
         )
         if mid_rows:
             chart.render_leaderboard_png("middle", "global", mid_rows)
