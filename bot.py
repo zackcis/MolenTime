@@ -12,7 +12,7 @@ import config
 import chart
 import state_store
 import week_utils
-from users_store import load_coders
+from users_store import load_coders, upsert_coder_for_discord_user
 from wakatime_client import fetch_all_weekly
 
 
@@ -176,5 +176,35 @@ def build_bot() -> MolengeekLeaderboardBot:
         assert bot_instance is not None
         await bot_instance.update_leaderboard_once()
         await interaction.followup.send("Leaderboard updated.", ephemeral=True)
+
+    @bot_instance.tree.command(
+        name="register_wakatime",
+        description="Register or update your WakaTime token for this leaderboard",
+    )
+    async def register_wakatime(
+        interaction: discord.Interaction,
+        wakatime_token: str,
+        display_name: str | None = None,
+    ) -> None:
+        chosen_name = (display_name or interaction.user.display_name).strip()
+        if not chosen_name:
+            chosen_name = interaction.user.name
+        try:
+            upsert_coder_for_discord_user(
+                discord_user_id=interaction.user.id,
+                display_name=chosen_name,
+                wakatime_token=wakatime_token,
+            )
+        except ValueError:
+            await interaction.response.send_message(
+                "Invalid token. Provide a `waka_...` key or encoded Basic secret.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.send_message(
+            "Saved your WakaTime token. Run `/refresh_leaderboard` to post now.",
+            ephemeral=True,
+        )
 
     return bot_instance
