@@ -25,12 +25,20 @@ def render_leaderboard_png(
     text_color = "white"
     background_color = "black"
 
+    def _build_week_title() -> str:
+        if week_label and week_start and week_end:
+            return f"{week_label}  -  {week_start}  ~  {week_end}"
+        return week_label or ""
+
     match template:
         case "top":
             ybottom = -0.5
             x = -1
-            title = f"Molengeek — WakaTime  |  {week_label or ''}  |  {week_start or ''}  ~  {week_end or ''}"
-            heading_code = f"ax.set_title({title!r}, pad=0, loc='center', va='top', fontsize=11, weight='bold', color=text_color)"
+            title = _build_week_title()
+            heading_code = (
+                f"ax.set_title({title!r}, pad=0, loc='center', va='top', "
+                "fontsize=17, weight='bold', color=text_color)"
+            )
         case "bottom":
             ybottom = -1
             x = 0
