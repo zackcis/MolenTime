@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import discord
@@ -41,11 +42,11 @@ class MolengeekLeaderboardBot(commands.Bot):
             )
             self.update_leaderboard_loop.start()
 
-    async def update_leaderboard_once(self) -> None:
+    async def update_leaderboard_once(self) -> list[Path]:
         coders = load_coders()
         if not coders:
             print("[Leaderboard] data/users.json is empty or missing tokens — nothing to post")
-            return
+            return []
 
         week = week_utils.current_week(tz_name=config.TIMEZONE)
         fetched = await fetch_all_weekly(
@@ -85,10 +86,16 @@ class MolengeekLeaderboardBot(commands.Bot):
                 footer_time=time_footer,
             )
 
+        rendered_paths: list[Path] = [config.STORAGE_IMAGES / "global_top_leaderboard.png"]
+        if mid_rows:
+            rendered_paths.append(config.STORAGE_IMAGES / "global_middle_leaderboard.png")
+        if bot_rows:
+            rendered_paths.append(config.STORAGE_IMAGES / "global_bottom_leaderboard.png")
+
         channel = self.get_channel(config.LEADERBOARD_CHANNEL_ID)
         if channel is None or not isinstance(channel, discord.TextChannel):
             print("[Leaderboard] LEADERBOARD_CHANNEL_ID not found or not a text channel")
-            return
+            return rendered_paths
 
         ids = state_store.load_message_ids()
         positions_to_post = ["top"]
@@ -129,6 +136,7 @@ class MolengeekLeaderboardBot(commands.Bot):
 
         state_store.save_message_ids(ids)
         print(f"[Leaderboard] updated #{channel.name} ({channel.id})")
+        return rendered_paths
 
     @tasks.loop(minutes=15)
     async def update_leaderboard_loop(self) -> None:
@@ -170,8 +178,19 @@ def build_bot() -> MolengeekLeaderboardBot:
             return
         await interaction.response.defer(ephemeral=True)
         assert bot_instance is not None
-        await bot_instance.update_leaderboard_once()
-        await interaction.followup.send("Leaderboard updated.", ephemeral=True)
+        paths = await bot_instance.update_leaderboard_once()
+        files = [discord.File(p, filename=p.name) for p in paths]
+        if files:
+            await interaction.followup.send(
+                "Leaderboard updated.",
+                ephemeral=True,
+                files=files,
+            )
+        else:
+            await interaction.followup.send(
+                "Nothing to show — add coders (e.g. `/register_wakatime`) or check `users.json`.",
+                ephemeral=True,
+            )
 
     @bot_instance.tree.command(
         name="register_wakatime",
