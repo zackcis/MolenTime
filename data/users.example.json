@@ -1,0 +1,10 @@
+[
+  {
+    "display_name": "Ada",
+    "wakatime_token": "PASTE_YOUR_WAKATIME_SECRET_BASE64_HERE"
+  },
+  {
+    "display_name": "Another coder",
+    "wakatime_token": "waka_your_key_here_or_paste_encoded_basic_secret"
+  }
+]
