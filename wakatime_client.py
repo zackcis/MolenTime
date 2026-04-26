@@ -128,3 +128,36 @@ async def fetch_all_weekly(
         row.rank_cell = str(i)
     print(f"[WakaTime] fetched {len(results)} coders in {time.time() - t0:.1f}s (sleep {sleeped:.1f}s)")
     return results
+
+
+def merge_wakatime_results_with_coders(coders: list[Coder], fetched: list[WakaRow]) -> list[WakaRow]:
+    """Ensure every registered coder appears; missing API rows become zero placeholders."""
+    if not coders:
+        return []
+    by_name: dict[str, WakaRow] = {}
+    for r in fetched:
+        by_name.setdefault(r.coder, r)
+    merged: list[WakaRow] = []
+    for c in coders:
+        hit = by_name.get(c.display_name)
+        if hit is not None:
+            merged.append(hit)
+        else:
+            merged.append(
+                WakaRow(
+                    rank_cell="",
+                    coder=c.display_name,
+                    total="0h 0min",
+                    languages="",
+                    total_seconds=0.0,
+                )
+            )
+    merged.sort(key=lambda r: r.total_seconds, reverse=True)
+    for i, row in enumerate(merged, start=1):
+        row.rank_cell = str(i)
+    if len(fetched) < len(coders):
+        print(
+            f"[WakaTime] showing {len(coders)} coders "
+            f"({len(coders) - len(fetched)} without successful summary — zeros)"
+        )
+    return merged

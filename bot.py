@@ -13,7 +13,7 @@ import chart
 import state_store
 import week_utils
 from users_store import load_coders, upsert_coder_for_discord_user
-from wakatime_client import fetch_all_weekly
+from wakatime_client import fetch_all_weekly, merge_wakatime_results_with_coders
 
 
 def _split_thirds(rows: list[dict]) -> tuple[list[dict], list[dict], list[dict]]:
@@ -48,20 +48,15 @@ class MolengeekLeaderboardBot(commands.Bot):
             return
 
         week = week_utils.current_week(tz_name=config.TIMEZONE)
-        rows = await fetch_all_weekly(
+        fetched = await fetch_all_weekly(
             coders,
             start=week.start,
             end=week.end,
         )
-        if rows:
-            table = [r.as_chart_row() for r in rows]
-        else:
-            # WakaTime returned nobody (e.g. all keys invalid) — still post images with zeros
-            table = [
-                {"": str(i), "Coder": c.display_name, "Total": "0h 0min", "Languages": ""}
-                for i, c in enumerate(coders, start=1)
-            ]
-            print("[Leaderboard] no WakaTime rows — posting zero placeholder for each coder in users.json")
+        rows = merge_wakatime_results_with_coders(coders, fetched)
+        if not fetched:
+            print("[Leaderboard] no successful WakaTime responses — all coders shown as 0h 0min")
+        table = [r.as_chart_row() for r in rows]
 
         # For small leaderboards, post a single clean image.
         if len(table) < 9:
